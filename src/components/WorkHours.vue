@@ -34,11 +34,11 @@
                 v-model="frame.to" variant="outlined" background-color="filler" hide-details="auto" maxlength="5" density="compact"
                 :list="'to_'+index+'_'+day.key+'_'+uid"
                 :disabled="disabled || !(days[day.key] || {}).enabled" style="min-width: 80px;" class="work-hour-value"
-                :rules="[requiredValue,validTime]"
+                :rules="[requiredValue,validTime,validEndTime[day.key+'_'+index]]"
                 @focus="onFocus"
               />
               <datalist :id="'to_'+index+'_'+day.key+'_'+uid">
-                <option v-for="(opt,optionIndex) in intervalOptions" :key="'pt'+optionIndex+'_'+day.key" :value="opt">{{ opt }}</option>
+                <option v-for="(opt,optionIndex) in possibleIntervalOptions(frame.from)" :key="'pt'+optionIndex+'_'+day.key" :value="opt">{{ opt }}</option>
               </datalist>
             </div>
           </td>
@@ -178,6 +178,23 @@ export default
           minutes += +this.interval; // coerce String to Number
         }
         return result;
+      },
+      validEndTime()
+      {
+        const result = {};
+        Object.entries((this.value || {}).weekdays || {}).forEach(([dayID, weekday]) =>
+        {
+          (weekday.intervals || []).forEach((interval, index) =>
+          {
+            result[dayID + '_' + index] = (val) =>
+            {
+              const from = (interval.from || '').split(':');
+              const to = (val || '').split(':');
+              return from[0] * 60 + from[1] * 1 < to[0] * 60 + to[1] * 1 || 'From is after To';
+            };
+          });
+        });
+        return result;
       }
     },
   methods:
@@ -247,6 +264,17 @@ export default
             to: '17:00'
           });
         }
+      },
+      /**
+       * Returns only those TO values which are greater than the corresponding FROM
+       * @param from {string}
+       * @returns string[]
+       */
+      possibleIntervalOptions(from)
+      {
+        const temp = (from || '').split(':');
+        const minimum = temp[0].padStart(2, '0') + ':' + temp[1].padStart(2, '0');
+        return this.intervalOptions.filter(item => item > minimum);
       },
       requiredValue(val)
       {
